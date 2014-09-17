@@ -117,6 +117,14 @@ struct mg_callbacks {
     int  (*websocket_data)(struct mg_connection *, int bits,
                            char *data, size_t data_len);
 
+    /* Called when civetweb has accepted a connection. The SSL handshake 
+       is done already. Could be used to check client certificates.
+       
+       Return value:
+         0: proceed with processing of requests
+         1: close connection immediately */
+    int (*connection_accept)(struct mg_connection *);
+
     /* Called when civetweb is closing a connection.  The per-context mutex is
        locked when this is invoked.  This is primarily useful for noting when
        a websocket is closing and removing it from any application-maintained
