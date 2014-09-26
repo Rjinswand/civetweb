@@ -6440,7 +6440,7 @@ static void process_new_connection(struct mg_connection *conn)
     
     /* call the connection_accept callback if assigned */
     if (conn->ctx->callbacks.connection_accept != NULL) {
-        if (0 != conn->ctx->callbacks.connection_accept(conn)) {
+        if (0 != conn->ctx->callbacks.connection_accept(conn, conn->ssl, conn->ctx->user_data)) {
             return;
         }
     }

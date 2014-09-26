@@ -123,7 +123,7 @@ struct mg_callbacks {
        Return value:
          0: proceed with processing of requests
          1: close connection immediately */
-    int (*connection_accept)(struct mg_connection *);
+    int (*connection_accept)(struct mg_connection *, void * ssl, void* user_data);
 
     /* Called when civetweb is closing a connection.  The per-context mutex is
        locked when this is invoked.  This is primarily useful for noting when
