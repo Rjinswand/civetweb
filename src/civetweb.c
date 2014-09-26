@@ -6427,6 +6427,14 @@ static void process_new_connection(struct mg_connection *conn)
     /* Important: on new connection, reset the receiving buffer. Credit goes
        to crule42. */
     conn->data_len = 0;
+
+    /* call the connection_accept callback if assigned */
+    if (conn->ctx->callbacks.connection_accept != NULL) {
+        if (0 != conn->ctx->callbacks.connection_accept(conn, conn->ssl, conn->ctx->user_data)) {
+            return;
+        }
+    }
+
     do {
         if (!getreq(conn, ebuf, sizeof(ebuf))) {
             send_http_error(conn, 500, "Server Error", "%s", ebuf);
