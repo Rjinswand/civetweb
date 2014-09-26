@@ -6042,6 +6042,7 @@ static int set_uid_option(struct mg_context *ctx)
 #endif /* !_WIN32 */
 
 #if !defined(NO_SSL)
+static int ssl_mutex_ref_count = 0;
 static pthread_mutex_t *ssl_mutexes;
 
 static int sslize(struct mg_connection *conn, SSL_CTX *s, int (*func)(SSL *))
@@ -6162,18 +6163,20 @@ static int set_ssl_option(struct mg_context *ctx)
 
     /* Initialize locking callbacks, needed for thread safety.
        http://www.openssl.org/support/faq.html#PROG1 */
-    size = sizeof(pthread_mutex_t) * CRYPTO_num_locks();
-    if ((ssl_mutexes = (pthread_mutex_t *) mg_malloc((size_t)size)) == NULL) {
-        mg_cry(fc(ctx), "%s: cannot allocate mutexes: %s", __func__, ssl_error());
-        return 0;
-    }
+    if (0 == ssl_mutex_ref_count++) {
+        size = sizeof(pthread_mutex_t) * CRYPTO_num_locks();
+        if ((ssl_mutexes = (pthread_mutex_t *) mg_malloc((size_t)size)) == NULL) {
+            mg_cry(fc(ctx), "%s: cannot allocate mutexes: %s", __func__, ssl_error());
+            return 0;
+        }
 
-    for (i = 0; i < CRYPTO_num_locks(); i++) {
-        pthread_mutex_init(&ssl_mutexes[i], NULL);
-    }
+        for (i = 0; i < CRYPTO_num_locks(); i++) {
+            pthread_mutex_init(&ssl_mutexes[i], NULL);
+        }
 
-    CRYPTO_set_locking_callback(&ssl_locking_callback);
-    CRYPTO_set_id_callback(&ssl_id_callback);
+        CRYPTO_set_locking_callback(&ssl_locking_callback);
+        CRYPTO_set_id_callback(&ssl_id_callback);
+    }
 
     return 1;
 }
@@ -6182,12 +6185,16 @@ static void uninitialize_ssl(struct mg_context *ctx)
 {
     int i;
     if (ctx->ssl_ctx != NULL) {
-        CRYPTO_set_locking_callback(NULL);
-        for (i = 0; i < CRYPTO_num_locks(); i++) {
-            pthread_mutex_destroy(&ssl_mutexes[i]);
+        if (0 == --ssl_mutex_ref_count) {
+            CRYPTO_set_locking_callback(NULL);
+            for (i = 0; i < CRYPTO_num_locks(); i++) {
+                pthread_mutex_destroy(&ssl_mutexes[i]);
+            }
+            CRYPTO_set_locking_callback(NULL);
+            CRYPTO_set_id_callback(NULL);
+            mg_free(ssl_mutexes);
+            ssl_mutexes = NULL;
         }
-        CRYPTO_set_locking_callback(NULL);
-        CRYPTO_set_id_callback(NULL);
     }
 }
 #endif /* !NO_SSL */
@@ -6823,10 +6830,6 @@ static void free_context(struct mg_context *ctx)
     /* Deallocate SSL context */
     if (ctx->ssl_ctx != NULL) {
         SSL_CTX_free(ctx->ssl_ctx);
-    }
-    if (ssl_mutexes != NULL) {
-        mg_free(ssl_mutexes);
-        ssl_mutexes = NULL;
     }
 #endif /* !NO_SSL */
 
