@@ -771,8 +771,6 @@ struct mg_request_handler_info {
 
 struct mg_context {
     volatile int stop_flag;         /* Should we stop event loop */
-    void *ssllib_dll_handle;        /* Store the ssl library handle. */
-    void *cryptolib_dll_handle;     /* Store the crypto library handle. */
     SSL_CTX *ssl_ctx;               /* SSL context */
     char *config[NUM_OPTIONS];      /* Civetweb configuration parameters */
     struct mg_callbacks callbacks;  /* User-defined callback function */
@@ -6115,7 +6113,13 @@ static void *load_dll(struct mg_context *ctx, const char *dll_name,
 
     return dll_handle;
 }
+
+static void *ssllib_dll_handle = 0;    /* Store the ssl library handle. */
+static void *cryptolib_dll_handle = 0; /* Store the crypto library handle. */
+
 #endif /* NO_SSL_DL */
+
+static int cryptolib_users = 0;        /* Refecence counter for crypto library. */
 
 /* Dynamically load SSL library. Set up ctx->ssl_ctx pointer. */
 static int set_ssl_option(struct mg_context *ctx)
@@ -6131,12 +6135,18 @@ static int set_ssl_option(struct mg_context *ctx)
     }
 
 #if !defined(NO_SSL_DL)
-    ctx->ssllib_dll_handle = load_dll(ctx, SSL_LIB, ssl_sw);
-    ctx->cryptolib_dll_handle = load_dll(ctx, CRYPTO_LIB, crypto_sw);
-    if (!ctx->ssllib_dll_handle || !ctx->cryptolib_dll_handle) {
+    if (!cryptolib_dll_handle) {
+        cryptolib_dll_handle = load_dll(ctx, CRYPTO_LIB, crypto_sw);
+    }
+    if (!ssllib_dll_handle) {
+        ssllib_dll_handle = load_dll(ctx, SSL_LIB, ssl_sw);
+    }
+    if (!ssllib_dll_handle || !cryptolib_dll_handle) {
         return 0;
     }
 #endif /* NO_SSL_DL */
+
+    ++cryptolib_users;
 
     /* Initialize SSL library */
     SSL_library_init();
