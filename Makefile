@@ -10,6 +10,7 @@
 include resources/Makefile.in-os
 
 CPROG = civetweb
+SLIB = lib$(CPROG).so
 #CXXPROG = civetweb
 UNIT_TEST_PROG = civetweb_test
 
@@ -20,6 +21,8 @@ BUILD_DIR = out
 PREFIX = /usr/local
 EXEC_PREFIX = $(PREFIX)
 BINDIR = $(EXEC_PREFIX)/bin
+LIBDIR = $(EXEC_PREFIX)/lib
+INCDIR = $(EXEC_PREFIX)/include
 DATAROOTDIR = $(PREFIX)/share
 DOCDIR = $(DATAROOTDIR)/doc/$(CPROG)
 SYSCONFDIR = $(PREFIX)/etc
@@ -127,6 +130,7 @@ help:
 	@echo "make help                show this message"
 	@echo "make build               compile"
 	@echo "make install             install on the system"
+	@echo "make libinstall          install library on the system"
 	@echo "make clean               clean up the mess"
 	@echo "make lib                 build a static library"
 	@echo "make slib                build a shared library"
@@ -168,6 +172,10 @@ build: $(CPROG) $(CXXPROG)
 unit_test: $(UNIT_TEST_PROG)
 
 ifeq ($(CAN_INSTALL),1)
+libinstall:  $(INCDIR)/civetweb.h
+	install -d -m 755 "$(LIBDIR)"
+	install -m 755 $(SLIB) "$(LIBDIR)/"
+
 install: $(HTMLDIR)/index.html $(SYSCONFDIR)/civetweb.conf
 	install -d -m 755  "$(DOCDIR)"
 	install -m 644 *.md "$(DOCDIR)"
@@ -188,6 +196,10 @@ $(SYSCONFDIR)/civetweb.conf:
 	install -m 644 resources/civetweb.conf  "$(SYSCONFDIR)/"
 	@sed -i 's#^document_root.*$$#document_root $(DOCUMENT_ROOT)#' "$(SYSCONFDIR)/civetweb.conf"
 	@sed -i 's#^listening_ports.*$$#listening_ports $(PORTS)#' "$(SYSCONFDIR)/civetweb.conf"
+
+$(INCDIR)/civetweb.h:
+	install -d -m 755  "$(INCDIR)"
+	install -m 644 include/civetweb.h "$(INCDIR)"
 
 else
 install:
